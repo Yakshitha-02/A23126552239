@@ -490,3 +490,36 @@ worker():
 * Slightly higher system complexity.
 
 However, the reliability and scalability benefits outweigh these drawbacks for a large-scale notification system.
+
+## Stage 6
+
+To implement the Priority Inbox feature, I assigned a weight to each notification type:
+
+* Placement = 3
+* Result = 2
+* Event = 1
+
+A priority score is calculated using both the notification type weight and notification timestamp. Notifications with higher type priority are ranked first, and notifications of the same type are sorted by recency.
+
+The application fetches notifications from the provided API, calculates a priority score for each notification, sorts them in descending order, and displays the top 10 notifications.
+
+Example ordering:
+
+1. Placement notifications
+2. Result notifications
+3. Event notifications
+
+To efficiently maintain the top 10 notifications as new notifications arrive, a min-heap (priority queue) of size 10 can be used. This allows insertion of new notifications in O(log n) time while keeping memory usage low.
+
+Time Complexity:
+
+* Priority score calculation: O(n)
+* Sorting: O(n log n)
+
+Optimized Approach:
+
+* Use a priority queue of size 10
+* Complexity: O(n log 10) ≈ O(n)
+
+This approach ensures that the most important and most recent notifications are always displayed to the user.
+
