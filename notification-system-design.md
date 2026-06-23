@@ -276,3 +276,110 @@ ON notifications(notificationType, createdAt);
 ```
 
 This allows the database to efficiently locate Placement notifications created within the last seven days.
+
+# Stage 4
+
+## Problem
+
+Currently, notifications are fetched from the database every time a student loads a page. As the number of students and notifications grows, this creates a large number of database queries and increases response time. This can overload the database and negatively affect user experience.
+
+## Suggested Solutions
+
+### 1. Caching Frequently Accessed Notifications
+
+I would use a caching system such as Redis to store recently fetched notifications.
+
+#### How it works
+
+* When a user requests notifications, the application first checks Redis.
+* If the data exists in Redis, it is returned immediately.
+* If not, the application fetches data from the database and stores it in Redis for future requests.
+
+#### Benefits
+
+* Reduces database load significantly.
+* Faster response times.
+* Better user experience.
+
+#### Tradeoff
+
+* Additional infrastructure is required.
+* Cached data may become slightly outdated if not refreshed properly.
+
+---
+
+### 2. Pagination
+
+Instead of loading all notifications at once, only a limited number should be fetched.
+
+Example:
+
+```sql
+SELECT *
+FROM notifications
+WHERE studentID = 1042
+ORDER BY createdAt DESC
+LIMIT 20 OFFSET 0;
+```
+
+#### Benefits
+
+* Smaller result sets.
+* Faster query execution.
+* Reduced network traffic.
+
+#### Tradeoff
+
+* Users need to load additional pages to view older notifications.
+
+---
+
+### 3. Fetch Only Unread Notifications Initially
+
+Most users are interested in recent or unread notifications.
+
+Instead of fetching all notifications, the application can initially fetch only unread notifications and provide a separate option to view older notifications.
+
+#### Benefits
+
+* Less data transferred.
+* Faster page loading.
+
+#### Tradeoff
+
+* Additional API endpoints may be required.
+
+---
+
+### 4. Real-Time Notification Delivery
+
+Instead of repeatedly fetching notifications on every page load, WebSockets or Server-Sent Events (SSE) can be used.
+
+#### How it works
+
+* The client establishes a persistent connection.
+* New notifications are pushed to users instantly.
+
+#### Benefits
+
+* Near real-time updates.
+* Eliminates unnecessary polling requests.
+* Better user experience.
+
+#### Tradeoff
+
+* More complex implementation.
+* Additional server resources required for maintaining connections.
+
+---
+
+## Recommended Approach
+
+I would combine:
+
+1. Proper database indexing
+2. Redis caching
+3. Pagination
+4. WebSockets for real-time updates
+
+This approach minimizes database load, improves response time, and provides a smooth experience for students even as the system scales to millions of notifications.
