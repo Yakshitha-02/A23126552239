@@ -383,3 +383,110 @@ I would combine:
 4. WebSockets for real-time updates
 
 This approach minimizes database load, improves response time, and provides a smooth experience for students even as the system scales to millions of notifications.
+
+# Stage 5
+
+## Problems with the Current Implementation
+
+The current implementation processes students one by one.
+
+```text
+for each student:
+    send_email()
+    save_to_db()
+    push_to_app()
+```
+
+This approach has several issues:
+
+1. It is slow because each operation is performed sequentially.
+2. If sending an email fails for some students, the process may stop midway.
+3. There is no retry mechanism for failed notifications.
+4. A single failure can affect the entire batch.
+5. Sending notifications to 50,000 students can take a very long time.
+
+For example, if email delivery fails for 200 students midway, it becomes difficult to determine who received notifications and who did not.
+
+---
+
+## Should saving to DB and sending emails happen together?
+
+No.
+
+Saving notifications and sending emails should be separated.
+
+The database should be treated as the source of truth. First, create notification records in the database and then process email and push notifications asynchronously.
+
+This ensures that even if an email service fails temporarily, the notification information is not lost.
+
+---
+
+## Proposed Solution
+
+I would use a message queue such as RabbitMQ, Kafka, or AWS SQS.
+
+### Flow
+
+1. HR clicks "Notify All".
+2. Notification records are created in the database.
+3. Notification jobs are pushed into a queue.
+4. Multiple worker services consume jobs from the queue.
+5. Workers send emails and push notifications independently.
+6. Failed jobs are retried automatically.
+
+This design is scalable, fault tolerant, and much faster.
+
+---
+
+## Revised Pseudocode
+
+```text
+function notify_all(student_ids, message):
+
+    for student_id in student_ids:
+
+        notification_id = save_to_db(student_id, message)
+
+        publish_to_queue({
+            notification_id,
+            student_id,
+            message
+        })
+
+
+worker():
+
+    while queue_not_empty:
+
+        job = consume_job()
+
+        try:
+            send_email(job.student_id, job.message)
+
+            push_to_app(job.student_id, job.message)
+
+            mark_as_sent(job.notification_id)
+
+        catch error:
+
+            retry_job(job)
+```
+
+---
+
+## Benefits
+
+* Faster processing through parallel workers.
+* Failed notifications can be retried.
+* Database remains consistent.
+* No notifications are lost.
+* Easily scalable for 50,000+ students.
+* Better reliability and fault tolerance.
+
+## Tradeoffs
+
+* Additional infrastructure is required for the message queue.
+* Monitoring and worker management become necessary.
+* Slightly higher system complexity.
+
+However, the reliability and scalability benefits outweigh these drawbacks for a large-scale notification system.
