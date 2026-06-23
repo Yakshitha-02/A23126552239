@@ -194,3 +194,85 @@ WHERE id = 'notification123';
 DELETE FROM notifications
 WHERE id = 'notification123';
 ```
+
+# Stage 3
+
+## Query Analysis
+
+### Given Query
+
+```sql
+SELECT *
+FROM notifications
+WHERE studentID = 1042
+AND isRead = false
+ORDER BY createdAt ASC;
+```
+
+### Is the query accurate?
+
+Yes, the query is accurate. It retrieves all unread notifications for the student with ID `1042` and displays them in the order they were created.
+
+### Why is this query slow?
+
+Initially, when the database contained only a small amount of data, this query may have worked well. However, the system now contains around 50,000 students and 5,000,000 notifications.
+
+If there are no proper indexes, the database has to search through a very large number of records to find unread notifications for a specific student. After filtering the data, it must also sort the results by `createdAt`.
+
+As the size of the table increases, this process becomes slower and can affect API performance.
+
+### What would I change?
+
+I would create a composite index on the columns that are most frequently used in filtering and sorting.
+
+```sql
+CREATE INDEX idx_notifications_student_read_created
+ON notifications(studentID, isRead, createdAt);
+```
+
+This index helps the database quickly find notifications for a particular student, filter unread notifications, and return them in the required order without performing expensive scans and sorting operations.
+
+### Computational Cost
+
+Without indexing, the query may require scanning the entire notifications table.
+
+**Time Complexity:** O(N)
+
+After creating the composite index, the database can locate matching records much faster.
+
+**Time Complexity:** O(log N + K)
+
+Where:
+
+* N = Total notifications
+* K = Matching notifications returned
+
+### Should we add indexes on every column?
+
+No. Adding indexes on every column is not a good practice.
+
+Although indexes improve read performance, they also:
+
+* Increase storage usage
+* Slow down INSERT, UPDATE and DELETE operations
+* Increase database maintenance overhead
+
+Indexes should only be added to columns that are frequently used in filtering, searching, joining, or sorting.
+
+### Query to find students who received Placement notifications in the last 7 days
+
+```sql
+SELECT DISTINCT studentID
+FROM notifications
+WHERE notificationType = 'Placement'
+AND createdAt >= NOW() - INTERVAL 7 DAY;
+```
+
+To improve the performance of this query, the following index can be created:
+
+```sql
+CREATE INDEX idx_notifications_type_created
+ON notifications(notificationType, createdAt);
+```
+
+This allows the database to efficiently locate Placement notifications created within the last seven days.
