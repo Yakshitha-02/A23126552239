@@ -68,3 +68,129 @@ Benefits:
 - Real-time delivery
 - Low latency
 - Bidirectional communication
+# Stage 2
+
+## Database Choice
+
+I would use PostgreSQL as the primary database because:
+
+* ACID compliance ensures reliable notification delivery.
+* Supports indexing and efficient querying.
+* Scales well for medium to large workloads.
+* Supports JSON fields for future extensibility.
+
+## Database Schema
+
+### students
+
+| Column     | Type         |
+| ---------- | ------------ |
+| id         | UUID (PK)    |
+| name       | VARCHAR(100) |
+| email      | VARCHAR(255) |
+| created_at | TIMESTAMP    |
+
+### notifications
+
+| Column            | Type                               |
+| ----------------- | ---------------------------------- |
+| id                | UUID (PK)                          |
+| student_id        | UUID (FK)                          |
+| notification_type | ENUM('Placement','Result','Event') |
+| message           | TEXT                               |
+| is_read           | BOOLEAN                            |
+| created_at        | TIMESTAMP                          |
+
+## Indexes
+
+```sql
+CREATE INDEX idx_notifications_student
+ON notifications(student_id);
+
+CREATE INDEX idx_notifications_read
+ON notifications(is_read);
+
+CREATE INDEX idx_notifications_created
+ON notifications(created_at);
+```
+
+## Potential Scaling Problems
+
+As data grows:
+
+* Slow notification retrieval.
+* Increased storage requirements.
+* High write volume during bulk notifications.
+* Database contention during peak placement seasons.
+
+## Solutions
+
+### Database Indexing
+
+Create indexes on frequently queried columns.
+
+### Pagination
+
+Retrieve notifications in pages instead of loading everything.
+
+Example:
+
+```sql
+SELECT *
+FROM notifications
+WHERE student_id = '123'
+ORDER BY created_at DESC
+LIMIT 20 OFFSET 0;
+```
+
+### Partitioning
+
+Partition notifications by creation date.
+
+### Read Replicas
+
+Use read replicas to distribute read traffic.
+
+### Caching
+
+Use Redis to cache frequently accessed notifications.
+
+## Example Queries
+
+### Create Notification
+
+```sql
+INSERT INTO notifications
+(id, student_id, notification_type, message, is_read, created_at)
+VALUES
+(uuid_generate_v4(),
+'student123',
+'Placement',
+'Microsoft hiring',
+false,
+NOW());
+```
+
+### Get Notifications
+
+```sql
+SELECT *
+FROM notifications
+WHERE student_id = 'student123'
+ORDER BY created_at DESC;
+```
+
+### Mark Notification Read
+
+```sql
+UPDATE notifications
+SET is_read = true
+WHERE id = 'notification123';
+```
+
+### Delete Notification
+
+```sql
+DELETE FROM notifications
+WHERE id = 'notification123';
+```
